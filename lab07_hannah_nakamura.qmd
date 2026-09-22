@@ -1,0 +1,143 @@
+---
+title: "lab07_hannah_miranda_nakamura"
+author: "Hannah Miranda Nakamura (249491)"
+format: pdf
+editor: visual
+---
+
+# Laboratório 07
+
+## SQLite - Parte II
+
+Benilton Carvalho, Guilherme Ludwig
+
+### Atividade
+
+```{r}
+library(RSQLite)
+```
+
+1.  Baixe o arquivo uwmadison.sqlite3. Conecte-se a ele usando o pacote RSQLite, armazenando a conexão em uma variável conn.
+
+```{r}
+path <- "datasets" # caminho até o arquivo
+fname <- file.path(path, "uwmadison.sqlite3")# nome do arquivo com o seu caminho
+conn <- dbConnect(SQLite(), fname) # variável conn armazena a conexão
+```
+
+2.  Quem são e quantos são os professores que lecionaram disciplinas cujo tópico era estatística (subjects.abbreviation='STAT');
+
+Quem são os professores
+
+```{sql connection=conn}
+SELECT DISTINCT(instructors.name) FROM instructors
+INNER JOIN teachings ON teachings.instructor_id = instructors.id
+INNER JOIN sections ON sections.uuid = teachings.section_uuid
+INNER JOIN subject_memberships ON subject_memberships.course_offering_uuid = sections.course_offering_uuid 
+INNER JOIN subjects ON subjects.code = subject_memberships.subject_code
+WHERE subjects.abbreviation = 'STAT'
+```
+
+Note que a tabela já indica a presença de 377 linhas totais, portanto, há 377 professores. Mesmo assim, optei por criar um código apenas para essa parte com o intuito de treino.
+
+```{sql connection=conn}
+SELECT COUNT(DISTINCT(instructors.name)) FROM instructors
+INNER JOIN teachings ON teachings.instructor_id = instructors.id
+INNER JOIN sections ON sections.uuid = teachings.section_uuid
+INNER JOIN subject_memberships ON subject_memberships.course_offering_uuid = sections.course_offering_uuid 
+INNER JOIN subjects ON subjects.code = subject_memberships.subject_code
+WHERE subjects.abbreviation = 'STAT'
+```
+
+3.  O GPA americano é definido numa escala de 0 a 4, em que A = 4, AB = 3.5, B = 3, BC = 2.5, C = 2, D = 1 e F = 0. Determinando a nota média de cada oferecimento pela ponderação da quantidade de alunos em cada extrato com os valores numéricos de cada conceito, indique (no que se referente a disciplinas no assunto de estatística):
+
+- Quem é o professor mais difícil?
+
+```{sql connection=conn}
+SELECT instructors.name, SUM(
+a_count * 4.0 + ab_count *3.5 + b_count * 3.0 + bc_count * 2.5 + c_count * 2.0 + d_count * 1.0 + f_count * 0.0
+)/ SUM(a_count + ab_count + b_count + bc_count + c_count + d_count + f_count) AS MEDIA_NOTAS FROM instructors
+INNER JOIN teachings ON teachings.instructor_id = instructors.id
+INNER JOIN sections ON sections.uuid = teachings.section_uuid
+INNER JOIN course_offerings ON course_offerings.uuid = sections.course_offering_uuid
+INNER JOIN grade_distributions ON grade_distributions.course_offering_uuid = course_offerings.uuid
+INNER JOIN subject_memberships ON subject_memberships.course_offering_uuid = sections.course_offering_uuid 
+INNER JOIN subjects ON subjects.code = subject_memberships.subject_code
+WHERE subjects.abbreviation = 'STAT'
+GROUP BY instructors.name
+HAVING SUM(a_count + ab_count + b_count + bc_count + c_count + d_count + f_count) > 0
+ORDER BY MEDIA_NOTAS
+LIMIT 1
+```
+
+Note que `JAMES D KUELBS` é o mais difícil
+
+- Quem é o professor mais fácil?
+
+```{sql connection=conn}
+SELECT instructors.name, SUM(
+a_count * 4.0 + ab_count *3.5 + b_count * 3.0 + bc_count * 2.5 + c_count * 2.0 + d_count * 1.0 + f_count * 0.0
+)/ SUM(a_count + ab_count + b_count + bc_count + c_count + d_count + f_count) AS MEDIA_NOTAS FROM instructors
+INNER JOIN teachings ON teachings.instructor_id = instructors.id
+INNER JOIN sections ON sections.uuid = teachings.section_uuid
+INNER JOIN course_offerings ON course_offerings.uuid = sections.course_offering_uuid
+INNER JOIN grade_distributions ON grade_distributions.course_offering_uuid = course_offerings.uuid
+INNER JOIN subject_memberships ON subject_memberships.course_offering_uuid = sections.course_offering_uuid 
+INNER JOIN subjects ON subjects.code = subject_memberships.subject_code
+WHERE subjects.abbreviation = 'STAT'
+GROUP BY instructors.name
+HAVING SUM(a_count + ab_count + b_count + bc_count + c_count + d_count + f_count) > 0
+ORDER BY MEDIA_NOTAS DESC
+LIMIT 5
+```
+
+Notes que `YAJUAN SI`, `SRIKANTHMADHAVAN ARAVAMUT` e `GUANHUA CHEN` são igualmente mais fáceis
+
+- Qual é a disciplina mais difícil?
+
+```{sql connection=conn}
+SELECT courses.name, SUM(
+a_count * 4.0 + ab_count * 3.5 + b_count * 3.0 + bc_count * 2.5 + c_count * 2.0 + d_count * 1.0 + f_count * 0.0
+)/ SUM(a_count + ab_count + b_count + bc_count + c_count + d_count + f_count) AS MEDIA_NOTAS 
+FROM courses
+INNER JOIN course_offerings ON course_offerings.course_uuid = courses.uuid
+INNER JOIN grade_distributions ON grade_distributions.course_offering_uuid = course_offerings.uuid
+INNER JOIN subject_memberships ON subject_memberships.course_offering_uuid = course_offerings.uuid
+INNER JOIN subjects ON subjects.code = subject_memberships.subject_code
+WHERE subjects.abbreviation = 'STAT'
+GROUP BY courses.uuid, courses.name
+HAVING SUM(a_count + ab_count + b_count + bc_count + c_count + d_count + f_count) > 0
+ORDER BY MEDIA_NOTAS 
+LIMIT 1
+```
+
+- Qual é a disciplina mais fácil?
+
+```{sql connection=conn}
+SELECT courses.name, SUM(
+a_count * 4.0 + ab_count * 3.5 + b_count * 3.0 + bc_count * 2.5 + c_count * 2.0 + d_count * 1.0 + f_count * 0.0
+)/ SUM(a_count + ab_count + b_count + bc_count + c_count + d_count + f_count) AS MEDIA_NOTAS 
+FROM courses
+INNER JOIN course_offerings ON course_offerings.course_uuid = courses.uuid
+INNER JOIN grade_distributions ON grade_distributions.course_offering_uuid = course_offerings.uuid
+INNER JOIN subject_memberships ON subject_memberships.course_offering_uuid = course_offerings.uuid
+INNER JOIN subjects ON subjects.code = subject_memberships.subject_code
+WHERE subjects.abbreviation = 'STAT'
+GROUP BY courses.uuid, courses.name
+HAVING SUM(a_count + ab_count + b_count + bc_count + c_count + d_count + f_count) > 0
+ORDER BY MEDIA_NOTAS DESC
+LIMIT 5
+```
+
+Note que `Nonparametric Statistics and Machine Learning Methods`, `Sample Survey Theory and Method`, `Data Science Practicum` e `Empir Proc&Semiparmtrc Infernc` são igualmente as mais fáceis.
+
+4.  Desconecte do banco de dados.
+
+```{r}
+dbDisconnect(conn)
+```
+
+```{r}
+Sys.setenv(TZ = "America/Sao_Paulo")
+Sys.time()
+```
