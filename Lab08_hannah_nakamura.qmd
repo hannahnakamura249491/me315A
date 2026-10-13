@@ -1,0 +1,112 @@
+---
+title: "Lab08_hannah_nakamura"
+format: pdf
+editor: visual
+---
+
+# Laboratório 8
+
+## **Atividade**
+
+Utilizando apenas operações por meio da biblioteca `polars`, responda:
+
+```{r}
+library(Replicate)
+```
+
+```{python}
+## Carregando a biblioteca polars
+import polars as pl
+```
+
+```{python}
+# lendo asquivos
+infbasicas = pl.read_csv("datasets/title.basics0.tsv.gz", # caminho do arquivo
+  separator = "\t", # separador já que é um tsv
+  null_values = r"\N", # mostrando como um valor nulo foi identificado
+  infer_schema_length = 1000, # quantidades de linhas a serem lidas 
+                                  # (banco de dados grande)
+  columns = ["tconst", "titleType", "primaryTitle", "genres"]) # colunas a 
+                                          # serem lidas (banco de dados grande)
+avaliacoes = pl.read_csv("datasets/title.ratings.tsv.gz", 
+  separator = "\t", 
+  null_values = r"\N", 
+  infer_schema_length = 1000, 
+  columns = ["tconst", "averageRating", "numVotes"])
+equipe = pl.read_csv("datasets/title.principals0.tsv.gz", 
+  separator = "\t", 
+  null_values = r"\N", 
+  infer_schema_length = 1000, 
+  columns = ["tconst", "nconst", "category"])
+```
+
+### Pergunta 1
+
+Quais são os 5 filmes com as maiores notas (`averageRating`)? Apresente uma solução capaz de desempatar os filmes baseando-se no número de votos recebidos.
+
+```{python}
+top5filmes = ( 
+  infbasicas.filter(pl.col("titleType") == "movie") # filtrando para conseguir 
+                                                    # apenas os filmes
+  .join(avaliacoes, on = "tconst") # unindo a tabela de informações básicas com 
+                                  # a de avaliações
+  .sort(by = ["averageRating", "numVotes"], descending = [True, True]) 
+  # ordenando por avaliação e por quantidade de votos
+  .select(["tconst", "primaryTitle", "averageRating", "numVotes"]) 
+  # selecionando apenas colunas necessárias
+  .head(5) # pegando apenas as 5 primeiras linhas
+)
+
+print(top5filmes)
+```
+
+
+### Pergunta 2
+
+Qual é o gênero mais frequente entre os filmes com nota maior que 8?
+
+```{python}
+genfrenfilm = (
+  infbasicas
+  .filter(pl.col("titleType") == "movie") # pegando apenas os filmes
+  .join(avaliacoes, on = "tconst") # unindo com a tabela de avaliações
+  .filter(pl.col("averageRating") > 8) # notas maiores que 8
+  .filter(pl.col("genres").is_not_null()) # retirando aqueles com gênero 
+                                          # faltando
+  .group_by("genres") # agrupando por gênero
+  .agg(pl.len().alias("frequencia")) # nomeando a coluna que conta a quantidade 
+                                    # de filmes de frequência
+  .sort(by = "frequencia", descending = True) # ordenando de forma decrescente 
+                                        # para conseguir o mais frequentes antes
+  .head(1) # pegando apenas a primeira linha, o mais frequente
+)
+
+print(genfrenfilm)
+```
+
+
+### Pergunta 3
+
+Quais são os 3 atores/atrizes que mais participaram de filmes com nota maior que 7.5?
+
+```{python}
+top3atoresfilm = (
+  equipe
+  .filter(pl.col("category").is_in(["actor", "actress"])) # filtrando 
+                                                          # atores/atrizes
+  .join( # unindo com a tabela de informações básicas
+    infbasicas.filter(pl.col("titleType") == "movie"), # filtrando apenas filmes
+    on = "tconst")
+  .join(avaliacoes, on = "tconst") # unindo com a tabela de avaliações
+  .filter(pl.col("averageRating") > 7.5) # apenas filmes com notas maiores 
+                                                      # que 7.5
+  .group_by("nconst") #agrupando por ator/atriz
+  .agg(pl.len().alias("nfilmes")) # contando a quantidade de filmes e nomeando 
+                                  # de nfilmes
+  .sort("nfilmes", descending = True) # ordenando de forma decrescente
+  .head(3) # pegando apenas as três primeiras linhas
+)
+
+print(top3atoresfilm)
+```
+
